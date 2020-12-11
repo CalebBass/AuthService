@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using AuthService.Api.Exceptions;
 using AuthService.Api.Response;
 using AuthService.Config;
 using AuthService.Data;
@@ -20,6 +21,8 @@ namespace AuthService.Api.Util
     public interface IJwtServiceAgent
     {
         Task<JwtWithRefreshTokenResponse> CreateAsymmetricJwtForCovidApi(string username);
+
+        (RefreshTokenValidity TokenValiditiy, string UserName) ValidateRefreshToken(string refreshToken);
     }
 
     public class JwtServiceAgent : IJwtServiceAgent
@@ -62,9 +65,9 @@ namespace AuthService.Api.Util
             {
                 using var transaction = _context.Database.BeginTransaction();
 
-                RemovePreviousRefreshToken(username, audience);
+                await RemovePreviousRefreshToken(username, audience);
 
-                AddNewRefreshTokenToDatabase(username, audience, refreshToken, refreshExpirationDays);
+                await AddNewRefreshTokenToDatabase(username, audience, refreshToken, refreshExpirationDays);
 
                 await _context.SaveChangesAsync();
 
@@ -78,9 +81,9 @@ namespace AuthService.Api.Util
             return saveSuccess ? refreshToken.ToString() : string.Empty;
         }
 
-        private void AddNewRefreshTokenToDatabase(string username, string audience, Guid refreshToken, int refreshExpirationDays)
+        private async Task AddNewRefreshTokenToDatabase(string username, string audience, Guid refreshToken, int refreshExpirationDays)
         {
-            _context.JwtRefreshTokens.AddAsync(new JwtRefreshToken
+            await _context.JwtRefreshTokens.AddAsync(new JwtRefreshToken
             {
                 RefreshToken = refreshToken,
                 Username = username,
@@ -91,13 +94,13 @@ namespace AuthService.Api.Util
 
         private async Task RemovePreviousRefreshToken(string username, string audience)
         {
-            var existingToken = await _context.JwtRefreshTokens.FirstOrDefaultAsync(x =>
-                x.Username.Equals(username, StringComparison.OrdinalIgnoreCase)
-                && x.Audience.Equals(audience, StringComparison.OrdinalIgnoreCase));
+            var existingToken =
+                _context.JwtRefreshTokens.Where(x =>
+                    x.Username == username && x.Audience == audience);
 
-            if (existingToken == null)
+            if (existingToken != null)
             {
-                _context.JwtRefreshTokens.Remove(existingToken);
+                _context.JwtRefreshTokens.RemoveRange(existingToken);
             }
         }
 
@@ -119,5 +122,42 @@ namespace AuthService.Api.Util
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+
+        public (RefreshTokenValidity TokenValiditiy, string UserName) ValidateRefreshToken(string refreshToken)
+        {
+            try
+            {
+                if (Guid.TryParse(refreshToken, out var result))
+                {
+                    var rt = _context.JwtRefreshTokens.Where(x => x.RefreshToken == result);
+
+                    if (rt.Any() && rt.Count() == 1)
+                    {
+                        if (rt.First().ExpirationDateTime > DateTimeOffset.Now)
+                        {
+                            return (RefreshTokenValidity.Valid, rt.First().Username);
+                        }
+                        else
+                        {
+                            return (RefreshTokenValidity.Expired, string.Empty);
+                        }
+                    }
+                    else
+                    {
+                        //Too many or too little. this can only be one record
+                        return (RefreshTokenValidity.Invalid, string.Empty);
+                    }
+                }
+                else
+                {
+                    throw new ApplicationException("triggering the catch block of this code");
+                }
+            }
+            catch (Exception e)
+            {
+                throw new NotFoundException("Refresh token not found. Please login again to get a new JWT.");
+            }
+        }
     }
 }
+

@@ -16,6 +16,12 @@ namespace AuthService.Api.Util
 
     }
 
+    public enum RefreshTokenValidity
+    {
+        Expired,
+        Invalid,
+        Valid
+    }
 
     public class RefreshTokenUtil : IRefreshTokenUtil
     {
@@ -35,12 +41,12 @@ namespace AuthService.Api.Util
             var protectedToken =
                 _dataProtectionProvider.CreateProtector("ProtectTheRefreshToken").Protect(refreshToken);
 
-            AppendRefreshTokenCookie(response, protectedToken, _jwtAttributesConfig.RefreshCookieName);
+            AppendRefreshTokenCookie(response, protectedToken, _jwtAttributesConfig.RefreshTokenCookieName);
         }
 
         public async Task<string> GetRefreshCookieValue(HttpRequest request)
         {
-            var refreshToken = request.Cookies[_jwtAttributesConfig.RefreshCookieName];
+            var refreshToken = request.Cookies[_jwtAttributesConfig.RefreshTokenCookieName];
             var cookieVal = _dataProtectionProvider.CreateProtector("ProtectTheRefreshToken").Unprotect(refreshToken);
 
             return cookieVal;

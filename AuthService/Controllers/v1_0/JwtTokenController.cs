@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using AuthService.Api.Response;
@@ -37,7 +38,9 @@ namespace AuthService.Api.Controllers.v1_0
         [HttpGet("Issue/CovidApi"), MapToApiVersion("1.0")]
         [ProducesResponseType(typeof(JwtWithRefreshTokenResponse), StatusCodes.Status200OK)]
         [ProducesResponseType( StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<JwtWithRefreshTokenResponse>> GetJwtForCovidApi([FromQuery] string username, [FromQuery] string password)
+        public async Task<ActionResult<JwtWithRefreshTokenResponse>> GetJwtForCovidApi(
+            [FromHeader(Name = RequestHeaderConstants.UserName)][Required] string username,
+            [FromHeader(Name = RequestHeaderConstants.Password)][Required] string password)
         {
             var user = await _userManager.FindByEmailAsync(username);
 
@@ -45,46 +48,62 @@ namespace AuthService.Api.Controllers.v1_0
 
             if (signInResult.Succeeded)
             {
-                return await _jwtServiceAgent.CreateAsymmetricJwtForCovidApi(username);
+
+                var tokenResponse =  await _jwtServiceAgent.CreateAsymmetricJwtForCovidApi(username);
+                await _refreshTokenUtil.SaveRefreshTokenToCookie(Response, tokenResponse.refresh_token);
+
+                return tokenResponse;
+            }
+            else
+            {
+                Response.Headers.Add("error", "invalid_credentials");
+                Response.Headers.Add("error_description", "Invalid UserName or Password");
+                throw new UnauthorizedAccessException("Invalid UserName or Password");
             }
 
             return StatusCode(500);
         }
 
-//        [HttpGet("Refresh/CovidApi"), MapToApiVersion("1.0")]
-//        [ProducesResponseType(typeof(JwtWithRefreshTokenResponse), StatusCodes.Status200OK)]
-//        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-//        public async Task<ActionResult<JwtWithRefreshTokenResponse>> GetRefreshTokenForCovidApi(string username, string password)
-//        {
-//            var refreshToken = _refreshTokenUtil.GetRefreshCookieValue(Request);
-//
-//            if (refreshToken == null) throw new Exception("Refresh token is null");
-//
-//            var tokenValidationResult = "";
-//
-//            switch (tokenValidationResult) 
-//            {
-//                case RefreshTokenValidity.Expired:
-//                    Response.Headers.Add("error", "invalid_request");
-//                    Response.Headers.Add("error_description", "Expired refresh token");
-//                    break;
-//
-//                case RefreshTokenValidity.Invalid:
-//                    Response.Headers.Add("error", "invalid_request");
-//                    Response.Headers.Add("error_description", "Invalid refresh token");
-//                    break;
-//
-//                case RefreshTokenValidity.Valid:
-//                    var tokenResponse = await _jwtServiceAgent.CreateAsymmetricJwtForCovidApi(username);
-//                    _refreshTokenUtil.SaveRefreshTokenToCookie(Response, tokenResponse.refresh_token);
-//
-//                    return Ok(tokenResponse);
-//
-//                default:
-//                    throw new Exception();
-//            }
-//
-//        }
+        [HttpGet("Refresh/CovidApi"), MapToApiVersion("1.0")]
+        [ProducesResponseType(typeof(JwtWithRefreshTokenResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<JwtWithRefreshTokenResponse>> GetRefreshTokenForCovidApi()
+        {
+
+            var refreshTokenValue = await _refreshTokenUtil.GetRefreshCookieValue(Request);
+
+            if (refreshTokenValue == null)
+            {
+                throw new UnauthorizedAccessException("User does not have a refresh token cookie.");
+            }
+
+            var tokenValidationResult = _jwtServiceAgent.ValidateRefreshToken(refreshTokenValue);
+
+            switch (tokenValidationResult.TokenValiditiy) 
+            {
+                case RefreshTokenValidity.Expired:
+                    Response.Headers.Add("error", "invalid_request");
+                    Response.Headers.Add("error_description", "Expired refresh token");
+                    break;
+
+                case RefreshTokenValidity.Invalid:
+                    Response.Headers.Add("error", "invalid_request");
+                    Response.Headers.Add("error_description", "Invalid refresh token");
+                    break;
+
+                case RefreshTokenValidity.Valid:
+                    var tokenResponse = await _jwtServiceAgent.CreateAsymmetricJwtForCovidApi(tokenValidationResult.UserName);
+                    _refreshTokenUtil.SaveRefreshTokenToCookie(Response, tokenResponse.refresh_token);
+
+                    await _refreshTokenUtil.SaveRefreshTokenToCookie(Response, tokenResponse.refresh_token);
+
+                    return Ok(tokenResponse);
+
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+            return StatusCode(500);
+        }
 
     }
 }

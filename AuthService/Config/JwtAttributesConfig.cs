@@ -19,7 +19,7 @@ namespace AuthService.Config
 
         public int ExpirationMinutes { get; set; }
 
-        public string RefreshCookieName { get; set; } = string.Empty;
+        public string RefreshTokenCookieName { get; set; } = string.Empty;
 
         public string PrivateRsaKey { get; set; } = string.Empty;
 
