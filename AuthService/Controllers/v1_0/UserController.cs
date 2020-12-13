@@ -1,16 +1,13 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using System.Threading.Tasks;
 using AuthService.Api.Request;
 using AuthService.Api.Util;
 using AuthService.Data;
 using AuthService.Data.Models;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 
 namespace AuthService.Api.Controllers.v1_0
 {

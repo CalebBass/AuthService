@@ -7,7 +7,11 @@ using AuthService.Data.Models;
 
 namespace AuthService.Api.Util
 {
-    public class UserManagerUtil
+    public interface IUserManagerUtil
+    {
+        Task<bool> ValidateCredentials(string username, string password);
+    }
+    public class UserManagerUtil : IUserManagerUtil
     {
         private readonly AuthServiceContext _context;
 
@@ -17,9 +21,11 @@ namespace AuthService.Api.Util
         }
 
 
+        public async Task<bool> ValidateCredentials(string username, string password)
+        {
+            throw new NotImplementedException();
 
-
-        
-
+            return true;
+        }
     }
 }

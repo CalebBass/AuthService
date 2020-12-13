@@ -12,6 +12,7 @@ using AuthService.Api.Util;
 using AuthService.Config;
 using AuthService.Data;
 using AuthService.Data.Models;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -29,14 +30,11 @@ namespace AuthService
 
         public IConfiguration Configuration { get; }
 
-
-        // This method gets called by the runtime. Use this method to add services to the container.
-        // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
             services.AddApiVersioning();
-
+            services.AddCors();
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "AuthServiceApi", Version = "v1" });
@@ -77,6 +75,9 @@ namespace AuthService
                 options.SlidingExpiration = true;
             });
 
+            services.AddAuthentication("BasicAuthentication")
+                .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
+
             services.AddSingleton<RsaSecurityKey>(provider =>
             {
                 RSA rsa = RSA.Create();
@@ -100,6 +101,10 @@ namespace AuthService
                 app.UseSwagger();
                 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "AuthService v1"));
             }
+            app.UseCors(builder => builder
+                .AllowAnyOrigin()
+                .AllowAnyMethod()
+                .AllowAnyHeader());
 
             app.UseRouting();
             app.UseAuthentication();
@@ -118,6 +123,7 @@ namespace AuthService
         {
             services.AddScoped<IJwtServiceAgent, JwtServiceAgent>();
             services.AddScoped<IRefreshTokenUtil, RefreshTokenUtil>();
+            services.AddScoped<IUserManagerUtil, UserManagerUtil>();
         }
     }
 }
