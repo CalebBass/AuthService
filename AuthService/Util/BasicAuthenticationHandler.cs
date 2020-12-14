@@ -36,9 +36,12 @@ namespace AuthService.Api.Util
                 var credentials = Encoding.UTF8.GetString(Convert.FromBase64String(authHeader.Parameter)).Split(':');
                 username = credentials?.FirstOrDefault() ?? "";
                 var password = credentials?.LastOrDefault() ?? "";
-               
+
+
                 if (!await _userManagerUtil.ValidateCredentials(username, password).ConfigureAwait(false))
+                {
                     throw new ArgumentException("Invalid credentials");
+                }
             }
             catch (Exception ex)
             {

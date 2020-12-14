@@ -63,7 +63,7 @@ namespace AuthService.Api.Util
             var saveSuccess = true;
             try
             {
-                using var transaction = _context.Database.BeginTransaction();
+                await using var transaction = await _context.Database.BeginTransactionAsync();
 
                 await RemovePreviousRefreshToken(username, audience);
 
@@ -71,7 +71,7 @@ namespace AuthService.Api.Util
 
                 await _context.SaveChangesAsync();
 
-                transaction.CommitAsync();
+                await transaction.CommitAsync();
             }
             catch (Exception ex)
             {

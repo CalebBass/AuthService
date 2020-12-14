@@ -34,7 +34,17 @@ namespace AuthService
         {
             services.AddControllers();
             services.AddApiVersioning();
-            services.AddCors();
+            services.AddCors(options =>
+            {
+                options.AddPolicy("CORSAllowLocalHost3000",
+                    builder =>
+                        builder.WithOrigins("https://localhost:3000")
+                            .AllowAnyHeader()
+                            .AllowAnyMethod()
+                            .AllowCredentials() // <<< this is required for cookies to be set on the client - sets the 'Access-Control-Allow-Credentials' to true
+                );
+            });
+
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "AuthServiceApi", Version = "v1" });
@@ -82,7 +92,7 @@ namespace AuthService
             {
                 RSA rsa = RSA.Create();
                 rsa.ImportRSAPrivateKey(
-                    Configuration["JwtAttributes:PublicRsaKey"].ToByteArray(),
+                    Configuration["JwtAttributes:PrivateRsaKey"].ToByteArray(),
                     out _);
 
                 return new RsaSecurityKey(rsa);
@@ -125,5 +135,7 @@ namespace AuthService
             services.AddScoped<IRefreshTokenUtil, RefreshTokenUtil>();
             services.AddScoped<IUserManagerUtil, UserManagerUtil>();
         }
+
+
     }
 }

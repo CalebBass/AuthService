@@ -94,9 +94,7 @@ namespace AuthService.Api.Controllers.v1_0
                         return BadRequest("Invalid refresh token");
 
                     case RefreshTokenValidity.Valid:
-                        var tokenResponse =
-                            await _jwtServiceAgent.CreateAsymmetricJwtForCovidApi(tokenValidationResult.UserName);
-                        _refreshTokenUtil.SaveRefreshTokenToCookie(Response, tokenResponse.refresh_token);
+                        var tokenResponse = await _jwtServiceAgent.CreateAsymmetricJwtForCovidApi(tokenValidationResult.UserName);
 
                         await _refreshTokenUtil.SaveRefreshTokenToCookie(Response, tokenResponse.refresh_token);
 
